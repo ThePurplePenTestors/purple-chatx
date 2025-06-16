@@ -1,11 +1,10 @@
 from cmd import Cmd
 import socket
 import threading
+import os
 import random
 import string
-import os
 
-MAPPING_SERVER = "YOUR_MAPPING_SERVER_IP"  # <- Set this to your code mapping server or leave blank
 PORT = 9999
 ENABLE_LOGGING = True
 LOG_FILE = "chatx.log"
@@ -19,16 +18,6 @@ def log(msg):
 
 def xor_encrypt_decrypt(msg, key):
     return ''.join(chr(ord(c) ^ ord(key[i % len(key)])) for i, c in enumerate(msg))
-
-def generate_code(length=6):
-    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=length))
-
-# === DUMMY PLACEHOLDERS (MAPPING DISABLED) ===
-def register_code(code, ip):
-    return "REGISTERED"
-
-def get_ip_from_code(code):
-    return "127.0.0.1" if code else "NOT_FOUND"
 
 # === CHAT FUNCTIONS ===
 def chat_send(sock):
@@ -50,26 +39,19 @@ def chat_recv(sock):
             if msg.lower() == "exit":
                 print("\n[Partner exited chat]")
                 break
-            print(f"\nPartner: {msg}\nYou: ", end="")
+            print(f"\nPartner: {msg}")
             log("Partner: " + msg)
         except:
             break
 
 def host_chat():
-    code = input("Enter code (leave blank for random): ").strip().upper() or generate_code()
-    my_ip = socket.gethostbyname(socket.gethostname())
-    result = register_code(code, my_ip)
-
-    if "REGISTERED" not in result:
-        print(f"[!] Failed to register: {result}")
-        return
-
-    print(f"[✓] Code registered: {code}")
-    print("[⏳] Waiting for connection...")
-
     s = socket.socket()
     s.bind(("0.0.0.0", PORT))
     s.listen(1)
+    ip = socket.gethostbyname(socket.gethostname())
+    print(f"[✓] Host started on IP: {ip}:{PORT}")
+    print("[⏳] Waiting for connection...")
+
     conn, addr = s.accept()
     print(f"[✓] Connected with {addr[0]}")
 
@@ -79,13 +61,7 @@ def host_chat():
     s.close()
 
 def join_chat():
-    code = input("Enter code to connect: ").strip().upper()
-    ip = get_ip_from_code(code)
-
-    if ip == "NOT_FOUND" or "Error" in ip:
-        print(f"[!] Host not found for code: {code}")
-        return
-
+    ip = input("Enter Host IP Address: ").strip()
     print(f"[✓] Connecting to {ip}:{PORT}...")
     s = socket.socket()
     try:
