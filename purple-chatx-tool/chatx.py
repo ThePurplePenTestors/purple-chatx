@@ -1,36 +1,40 @@
-from cmd import Cmd
+# universal_chat.py
 import socket
 import threading
 import random
 import string
 
-MAPPING_SERVER = "YOUR_MAPPING_SERVER_IP"  # <- Set this to your code mapping server
-PORT = 9999
+MAPPING_SERVER = "YOUR_MAPPING_SERVER_IP"  # 👉 इसको सेट करें
 
 def generate_code(length=6):
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=length))
+
 
 def register_code(code, ip):
     s = socket.socket()
     try:
         s.connect((MAPPING_SERVER, 5050))
         s.send(f"REGISTER|{code}|{ip}".encode())
-        return s.recv(1024).decode()
+        response = s.recv(1024).decode()
+        return response
     except Exception as e:
         return f"Error: {e}"
     finally:
         s.close()
+
 
 def get_ip_from_code(code):
     s = socket.socket()
     try:
         s.connect((MAPPING_SERVER, 5050))
         s.send(f"GET|{code}".encode())
-        return s.recv(1024).decode()
+        ip = s.recv(1024).decode()
+        return ip
     except Exception as e:
         return f"Error: {e}"
     finally:
         s.close()
+
 
 def chat_send(sock):
     while True:
@@ -42,32 +46,41 @@ def chat_send(sock):
         except:
             break
 
+
 def chat_recv(sock):
     while True:
         try:
             msg = sock.recv(1024).decode()
             if msg.lower() == "exit":
-                print("\n[Partner exited chat]")
+                print("Partner exited.")
                 break
             print(f"\nPartner: {msg}\nYou: ", end="")
         except:
             break
 
+
 def host_chat():
-    code = input("Enter code (leave blank for random): ").strip().upper() or generate_code()
+    print("\n[+] Hosting chat...")
+    choice = input("Want to enter custom code? (y/n): ").strip().lower()
+    if choice == "y":
+        code = input("Enter your custom code (no spaces): ").strip().upper()
+    else:
+        code = generate_code()
+
     my_ip = socket.gethostbyname(socket.gethostname())
     result = register_code(code, my_ip)
 
     if "REGISTERED" not in result:
-        print(f"[!] Failed to register: {result}")
+        print(f"[-] Error: {result}")
         return
 
-    print(f"[✓] Code registered: {code}")
-    print("[⏳] Waiting for connection...")
+    print(f"[✓] Share this code: {code}")
+    print("[⏳] Waiting for client to connect...")
 
     s = socket.socket()
-    s.bind(("0.0.0.0", PORT))
+    s.bind(("0.0.0.0", 9999))
     s.listen(1)
+
     conn, addr = s.accept()
     print(f"[✓] Connected with {addr[0]}")
 
@@ -76,55 +89,43 @@ def host_chat():
     conn.close()
     s.close()
 
+
 def join_chat():
     code = input("Enter code to connect: ").strip().upper()
     ip = get_ip_from_code(code)
 
     if ip == "NOT_FOUND" or "Error" in ip:
-        print(f"[!] Host not found for code: {code}")
+        print(f"[-] Could not find host for code: {code}")
         return
 
-    print(f"[✓] Connecting to {ip}:{PORT}...")
+    print(f"[✓] Connecting to {ip}...")
     s = socket.socket()
     try:
-        s.connect((ip, PORT))
+        s.connect((ip, 9999))
         threading.Thread(target=chat_recv, args=(s,), daemon=True).start()
         chat_send(s)
         s.close()
     except:
-        print("[!] Connection failed")
+        print("[-] Connection failed.")
 
-class ChatXShell(Cmd):
-    intro = """
-██████╗██╗  ██╗ █████╗ ████████╗██╗  ██╗
-██╔══██╗██║  ██║██╔══██╗╚══██╔══╝██║  ██║
-██████╔╝███████║███████║   ██║   ███████║
-██╔═══╝ ██╔══██║██╔══██║   ██║   ██╔══██║
-██║     ██║  ██║██║  ██║   ██║   ██║  ██║
-╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝
 
-ChatX v1.0 - Secure CLI Chat
-Type help or ? to list commands.
-"""
-    prompt = "chatx> "
+def main():
+    print("""
+    =============================
+    |    Universal Chat Tool    |
+    =============================
+    [1] Host Chat (Generate/Enter Code)
+    [2] Join Chat (Enter Code)
+    """)
 
-    def do_host(self, arg):
-        "Host a chat session: host"
+    opt = input("Choose option (1 or 2): ").strip()
+    if opt == '1':
         host_chat()
-
-    def do_join(self, arg):
-        "Join a chat session: join"
+    elif opt == '2':
         join_chat()
+    else:
+        print("Invalid input")
 
-    def do_exit(self, arg):
-        "Exit ChatX: exit"
-        print("Exiting ChatX...")
-        return True
 
-    def do_clear(self, arg):
-        "Clear the screen: clear"
-        import os
-        os.system('cls' if os.name == 'nt' else 'clear')
-
-if __name__ == '__main__':
-    ChatXShell().cmdloop()
+if __name__ == "__main__":
+    main()
